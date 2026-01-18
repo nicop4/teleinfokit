@@ -1,12 +1,23 @@
+/*
+* Teleinfokit HW versions:
+* 3 : initial version micro-usb, screen reversed, ESP-01
+* 4 : usb-c, ESP-01
+* 5 : usb-c, ESP32-C3
+* 6 : WT32-ETH01 + HW5 TIC board, ethernet
+*/
+
 #include <WiFiManager.h>
 #include <time.h>
 #if _HW_VER <= 4
   #include <TZ.h>
 #elif _HW_VER == 5
   #include "TZ_ESP32.h"
+#elif _HW_VER == 6
+  #include "TZ_ESP32.h" // use the same as HW5
+  #include <WebServer_WT32_ETH01.h>
 #endif
-#include <stdio.h>
 
+#include <stdio.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
@@ -23,6 +34,8 @@
 #define PIN_BUTTON 1
 #elif _HW_VER == 5
 #define PIN_BUTTON 0
+#elif _HW_VER == 6
+#define PIN_BUTTON 4
 #endif
 
 #define CONFIG_V200_FILE "/config.dat"
@@ -255,7 +268,7 @@ void readConfig()
 
 #if _HW_VER <= 4
   if (LittleFS.begin())
-#elif _HW_VER == 5
+#elif _HW_VER == 5 || _HW_VER == 6
   if (LittleFS.begin(false, "/littlefs", 10U, "littlefs"))
 #endif
   {
@@ -419,7 +432,7 @@ void saveParamCallback()
   d->drawGraph(ti.papp, config.mode_tic_standard ? 'S' : 'H');
 }
 
-void bindServerCallback()
+void bindServerCallback()s
 {
 }
 
@@ -536,8 +549,24 @@ void setup()
   #ifdef ESP32
   Serial.begin(115200);
   log("Démarrage...");
-  #endif
+  #endifs
   
+#if _HW_VER == 6
+ // To be called before ETH.begin()
+  WT32_ETH01_onEvent();
+
+  //bool begin(uint8_t phy_addr=ETH_PHY_ADDR, int power=ETH_PHY_POWER, int mdc=ETH_PHY_MDC, int mdio=ETH_PHY_MDIO,
+  //           eth_phy_type_t type=ETH_PHY_TYPE, eth_clock_mode_t clk_mode=ETH_CLK_MODE);
+  //ETH.begin(ETH_PHY_ADDR, ETH_PHY_POWER, ETH_PHY_MDC, ETH_PHY_MDIO, ETH_PHY_TYPE, ETH_CLK_MODE);
+  ETH.begin(ETH_PHY_ADDR, ETH_PHY_POWER);
+
+  // Static IP, leave without this line to get IP via DHCP
+  //bool config(IPAddress local_ip, IPAddress gateway, IPAddress subnet, IPAddress dns1 = 0, IPAddress dns2 = 0);
+  //ETH.config(myIP, myGW, mySN, myDNS);
+
+  WT32_ETH01_waitForConnect();
+#endif
+
   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
   data = new Data();
   randKey = new RandomKeyGenerator();
