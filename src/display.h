@@ -5,7 +5,7 @@
 #if _HW_VER <= 4
   #include <ESP8266WiFi.h>
   #include <TZ.h>
-#elif _HW_VER == 5
+#elif _HW_VER == 5 || _HW_VER == 6
   #include <WiFi.h>
   #include "TZ_ESP32.h"
 #endif

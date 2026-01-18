@@ -9,6 +9,9 @@
   #include <ESP8266WiFi.h>
 #elif _HW_VER == 5
   #include <WiFi.h>
+#elif _HW_VER == 6
+  #include <WiFi.h>
+  #include <EthernetESP32.h>
 #endif
 #include <LibTeleinfo.h>
 #include <PubSubClient.h>

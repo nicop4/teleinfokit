@@ -14,12 +14,13 @@
   #include "TZ_ESP32.h"
 #elif _HW_VER == 6
   #include "TZ_ESP32.h" // use the same as HW5
-  #include <WebServer_WT32_ETH01.h>
+  #include <EthernetESP32.h>
 #endif
 
 #include <stdio.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include <ESPmDNS.h>
 
 #include "LittleFS.h"
 
@@ -29,6 +30,7 @@
 #include "display.h"
 #include "randomKeyGenerator.h"
 #include "version.h"
+
 
 #if _HW_VER <= 4
 #define PIN_BUTTON 1
@@ -137,6 +139,9 @@ time_t now;
 String getParam(String name);
 void handlerBtn(Button2 &btn);
 
+#if _HW_VER == 6
+EMACDriver driver(EthPhyType::ETH_PHY_LAN8720);
+#endif
 
 void log(String message)
 {
@@ -432,7 +437,7 @@ void saveParamCallback()
   d->drawGraph(ti.papp, config.mode_tic_standard ? 'S' : 'H');
 }
 
-void bindServerCallback()s
+void bindServerCallback()
 {
 }
 
@@ -549,22 +554,24 @@ void setup()
   #ifdef ESP32
   Serial.begin(115200);
   log("Démarrage...");
-  #endifs
+  #endif
   
 #if _HW_VER == 6
- // To be called before ETH.begin()
-  WT32_ETH01_onEvent();
 
-  //bool begin(uint8_t phy_addr=ETH_PHY_ADDR, int power=ETH_PHY_POWER, int mdc=ETH_PHY_MDC, int mdio=ETH_PHY_MDIO,
-  //           eth_phy_type_t type=ETH_PHY_TYPE, eth_clock_mode_t clk_mode=ETH_CLK_MODE);
-  //ETH.begin(ETH_PHY_ADDR, ETH_PHY_POWER, ETH_PHY_MDC, ETH_PHY_MDIO, ETH_PHY_TYPE, ETH_CLK_MODE);
-  ETH.begin(ETH_PHY_ADDR, ETH_PHY_POWER);
+  Ethernet.init(driver);
 
-  // Static IP, leave without this line to get IP via DHCP
-  //bool config(IPAddress local_ip, IPAddress gateway, IPAddress subnet, IPAddress dns1 = 0, IPAddress dns2 = 0);
-  //ETH.config(myIP, myGW, mySN, myDNS);
 
-  WT32_ETH01_waitForConnect();
+  log("Initialize Ethernet with DHCP:");
+  if (Ethernet.begin()) {
+    log("  DHCP assigned IP ");
+    log(String(Ethernet.localIP()));
+  } else {
+    log("Failed to configure Ethernet using DHCP");
+    while (true) {
+      delay(1);
+    }
+  }
+
 #endif
 
   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
@@ -578,6 +585,8 @@ void setup()
     snprintf(UNIQUE_ID, 30, "teleinfokit-%06X", ESP.getChipId());
     #elif _HW_VER == 5
     snprintf(UNIQUE_ID, 30, "teleinfokit-%06X", String(ESP.getEfuseMac()));
+    #elif _HW_VER == 6
+    snprintf(UNIQUE_ID, 30, "teleinfokit-%06X", String(Ethernet.macAddress()));
     #endif
 
   d->displayStartup(String(VERSION));

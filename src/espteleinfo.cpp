@@ -1,7 +1,12 @@
 #include "espteleinfo.h"
 
+#if _HW_VER <= 5
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
+#elif _HW_VER == 6
+EthernetClient ethClient;
+PubSubClient mqttClient(ethClient);
+#endif
 
 TInfo teleinfo;
 

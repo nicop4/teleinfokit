@@ -4,6 +4,8 @@
 SSD1306Wire oled(0x3c, 0, 2, GEOMETRY_128_32);
 #elif _HW_VER == 5
 SSD1306Wire oled(0x3c, 8, 9, GEOMETRY_128_32);
+#elif _HW_VER == 6
+SSD1306Wire oled(0x3c, 8, 9, GEOMETRY_128_32);
 #endif
 
 Display::Display()
