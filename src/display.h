@@ -5,9 +5,18 @@
 #if _HW_VER <= 4
   #include <ESP8266WiFi.h>
   #include <TZ.h>
-#elif _HW_VER == 5 || _HW_VER == 6
+  #define OLED_SDA_PIN 0
+  #define OLED_SCL_PIN 2
+#elif _HW_VER == 5
   #include <WiFi.h>
   #include "TZ_ESP32.h"
+  #define OLED_SDA_PIN 8
+  #define OLED_SCL_PIN 9
+#elif _HW_VER == 6
+  #include <WiFi.h>
+  #include "TZ_ESP32.h" // use the same as HW5
+  #define OLED_SDA_PIN 14
+  #define OLED_SCL_PIN 15
 #endif
 
 #include <Wire.h>

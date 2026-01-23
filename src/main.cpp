@@ -10,11 +10,14 @@
 #include <time.h>
 #if _HW_VER <= 4
   #include <TZ.h>
+  #define PIN_BUTTON 1
 #elif _HW_VER == 5
   #include "TZ_ESP32.h"
+  #define PIN_BUTTON 0
 #elif _HW_VER == 6
   #include "TZ_ESP32.h" // use the same as HW5
   #include <EthernetESP32.h>
+  #define PIN_BUTTON 39
 #endif
 
 #include <stdio.h>
@@ -32,13 +35,6 @@
 #include "version.h"
 
 
-#if _HW_VER <= 4
-#define PIN_BUTTON 1
-#elif _HW_VER == 5
-#define PIN_BUTTON 0
-#elif _HW_VER == 6
-#define PIN_BUTTON 4
-#endif
 
 #define CONFIG_V200_FILE "/config.dat"
 #define CONFIG_FILE "/ext_config.dat" // configuration file extended
@@ -140,7 +136,9 @@ String getParam(String name);
 void handlerBtn(Button2 &btn);
 
 #if _HW_VER == 6
-EMACDriver driver(EthPhyType::ETH_PHY_LAN8720);
+//EMACDriver driver(EthPhyType::ETH_PHY_LAN8720);
+EMACDriver driver(ETH_PHY_LAN8720, 23, 18, 16);   // note powerPin = 16 required
+
 #endif
 
 void log(String message)
@@ -564,7 +562,7 @@ void setup()
   log("Initialize Ethernet with DHCP:");
   if (Ethernet.begin()) {
     log("  DHCP assigned IP ");
-    log(String(Ethernet.localIP()));
+    log(Ethernet.localIP().toString());
   } else {
     log("Failed to configure Ethernet using DHCP");
     while (true) {
@@ -683,6 +681,7 @@ void setup()
 
   wm.setBreakAfterConfig(true); // needed to use saveWifiCallback
 
+#if _HW_VER != 6
   if (!test_mode)
   {
     d->logPercent("Connexion au réseau wifi...", 35);
@@ -711,7 +710,7 @@ void setup()
     // /#REGION WifiManager ==================================
 
   } // end if !test_mode
-
+#endif
   // ================ OTA ================
   ArduinoOTA.setHostname(UNIQUE_ID);
   ArduinoOTA.setPassword(randKey->apPwd);
