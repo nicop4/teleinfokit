@@ -1,14 +1,29 @@
+/*
+* Teleinfokit HW versions:
+* 3 : initial version micro-usb, screen reversed, ESP-01
+* 4 : usb-c, ESP-01
+* 5 : usb-c, ESP32-C3
+* 6 : WT32-ETH01 + HW5 TIC board, ethernet
+*/
+
 #include <WiFiManager.h>
 #include <time.h>
 #if _HW_VER <= 4
   #include <TZ.h>
+  #define PIN_BUTTON 1
 #elif _HW_VER == 5
   #include "TZ_ESP32.h"
+  #define PIN_BUTTON 0
+#elif _HW_VER == 6
+  #include "TZ_ESP32.h" // use the same as HW5
+  #include <EthernetESP32.h>
+  #define PIN_BUTTON 39
 #endif
-#include <stdio.h>
 
+#include <stdio.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include <ESPmDNS.h>
 
 #include "LittleFS.h"
 
@@ -19,11 +34,7 @@
 #include "randomKeyGenerator.h"
 #include "version.h"
 
-#if _HW_VER <= 4
-#define PIN_BUTTON 1
-#elif _HW_VER == 5
-#define PIN_BUTTON 0
-#endif
+
 
 #define CONFIG_V200_FILE "/config.dat"
 #define CONFIG_FILE "/ext_config.dat" // configuration file extended
@@ -124,6 +135,11 @@ time_t now;
 String getParam(String name);
 void handlerBtn(Button2 &btn);
 
+#if _HW_VER == 6
+//EMACDriver driver(EthPhyType::ETH_PHY_LAN8720);
+EMACDriver driver(ETH_PHY_LAN8720, 23, 18, 16);   // note powerPin = 16 required
+
+#endif
 
 void log(String message)
 {
@@ -221,7 +237,7 @@ void saveConfigCallback()
 void configModeCallback(WiFiManager *myWiFiManager)
 {
   log("Entered Configuration Mode");
-  log("MAC: " + ESP.getEfuseMac());
+  //log("MAC: "+ ESP.getEfuseMac());    // crashes on ESP32-C3
   log("Hotspot Wifi: " + myWiFiManager->getConfigPortalSSID());
   log("Hotspot Password: " + String(randKey->apPwd));
   d->log("Hotspot Wifi: " + myWiFiManager->getConfigPortalSSID() + "\nClé : " + String(randKey->apPwd));
@@ -255,7 +271,7 @@ void readConfig()
 
 #if _HW_VER <= 4
   if (LittleFS.begin())
-#elif _HW_VER == 5
+#elif _HW_VER == 5 || _HW_VER == 6
   if (LittleFS.begin(false, "/littlefs", 10U, "littlefs"))
 #endif
   {
@@ -301,7 +317,7 @@ void readConfig()
       {
         strcpy(_customHtml_checkbox_mode_tic, HTML_RADIO_TIC_HIST);
       }
-
+      
       // mode triphasé
       if (config.mode_triphase)
       {
@@ -311,13 +327,13 @@ void readConfig()
       {
         strcpy(_customHtml_checkbox_triphase, HTML_RADIO_MONOPHASE);
       }
-
+      
       strcpy(mqtt_server, config.mqtt_server);
       strcpy(mqtt_port, config.mqtt_port);
       strcpy(mqtt_server_username, config.mqtt_server_username);
       strcpy(mqtt_server_password, config.mqtt_server_password);
       strcpy(data_transmission_period, config.data_transmission_period);
-
+      
       d->logPercent("Configuration chargée", 15);
     }
     else
@@ -339,15 +355,15 @@ void saveParamCallback()
 {
   d->logPercent("Sauvegarde configuration", 5);
   shouldSaveConfig = true;
-
+  
   strcpy(mqtt_server, custom_mqtt_server->getValue());
   strcpy(mqtt_port, custom_mqtt_port->getValue());
   strcpy(mqtt_server_username, custom_mqtt_username->getValue());
   strcpy(mqtt_server_password, custom_mqtt_password->getValue());
   strcpy(data_transmission_period, custom_data_transmission_period->getValue());
-
+  
   d->logPercent("Sauvegarde configuration", 20);
-
+  
   File configFile = LittleFS.open(CONFIG_FILE, "w");
   if (!configFile)
   {
@@ -367,9 +383,9 @@ void saveParamCallback()
       ti.triphase = config.mode_triphase;
     }
     config.mode_tic_standard = std;
-
+    
     d->logPercent("Sauvegarde configuration", 30);
-
+    
     strcpy(config.mqtt_server, custom_mqtt_server->getValue());
     strcpy(config.mqtt_port, custom_mqtt_port->getValue());
     strcpy(config.mqtt_server_username, custom_mqtt_username->getValue());
@@ -378,9 +394,9 @@ void saveParamCallback()
     strcpy(config.version, VERSION);
     configFile.write((byte *)&config, sizeof(config));
     configFile.close();
-
+    
     d->logPercent("Sauvegarde configuration", 50);
-
+    
     if (config.mode_tic_standard)
     {
       strcpy(_customHtml_checkbox_mode_tic, HTML_RADIO_TIC_STD);
@@ -389,9 +405,9 @@ void saveParamCallback()
     {
       strcpy(_customHtml_checkbox_mode_tic, HTML_RADIO_TIC_HIST);
     }
-
+    
     d->logPercent("Sauvegarde configuration", 50);
-
+    
     if (config.mode_triphase)
     {
       strcpy(_customHtml_checkbox_triphase, HTML_RADIO_TRIPHASE);
@@ -400,10 +416,10 @@ void saveParamCallback()
     {
       strcpy(_customHtml_checkbox_triphase, HTML_RADIO_MONOPHASE);
     }
-
+    
     d->logPercent("Rechargement config", 75);
   }
-
+  
   uint16_t port = 1883;
   if (config.mqtt_port[0] != '\0')
   {
@@ -426,7 +442,7 @@ void bindServerCallback()
 void handlePreOtaUpdateCallback()
 {
   Update.onProgress([](unsigned int progress, unsigned int total)
-                    { d->log("OTA Progress: %u%%\r", (progress / (total / 100))); });
+  { d->log("OTA Progress: %u%%\r", (progress / (total / 100))); });
 }
 
 // /#REGION WifiManager ==================================
@@ -438,10 +454,10 @@ void handlerBtn(Button2 &btn)
   {
     switch (btn.getType())
     {
-    case single_click:
-    case double_click:
-    case triple_click:
-    case long_click:
+      case single_click:
+      case double_click:
+      case triple_click:
+      case long_click:
       if (ti.ticMode == TINFO_MODE_HISTORIQUE)
       {
         // go mode standard
@@ -457,7 +473,7 @@ void handlerBtn(Button2 &btn)
         initButton();
       }
       break;
-    case empty:
+      case empty:
       break;
     }
     resetTs = 0;
@@ -468,14 +484,14 @@ void handlerBtn(Button2 &btn)
   { // normal operation, no test mode
     switch (btn.getType())
     {
-    case single_click:
-
+      case single_click:
+      
       // reset management at startup
       if (reset_possible)
       {
         reset_pending = true;
       }
-
+      
       if (screensaver == false)
       {
         mode = (mode + 1) % 7; // cycle through 7 screens
@@ -484,15 +500,15 @@ void handlerBtn(Button2 &btn)
       offTs = millis();
       screensaver = false;
       break;
-    case double_click:
+      case double_click:
       mode = GRAPH;
       resetTs = 0;
       offTs = millis();
       screensaver = false;
       break;
-    case triple_click:
+      case triple_click:
       break;
-    case long_click:
+      case long_click:
       // reset state machine mgmt
       if (reset == RST_PAGE)
       {
@@ -525,7 +541,7 @@ void handlerBtn(Button2 &btn)
         delay(200);
       }
       break;
-    case empty:
+      case empty:
       break;
     }
   }
@@ -537,6 +553,24 @@ void setup()
   Serial.begin(115200);
   log("Démarrage...");
   #endif
+  
+#if _HW_VER == 6
+
+  Ethernet.init(driver);
+
+
+  log("Initialize Ethernet with DHCP:");
+  if (Ethernet.begin()) {
+    log("  DHCP assigned IP ");
+    log(Ethernet.localIP().toString());
+  } else {
+    log("Failed to configure Ethernet using DHCP");
+    while (true) {
+      delay(1);
+    }
+  }
+
+#endif
 
   WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
   data = new Data();
@@ -549,6 +583,8 @@ void setup()
     snprintf(UNIQUE_ID, 30, "teleinfokit-%06X", ESP.getChipId());
     #elif _HW_VER == 5
     snprintf(UNIQUE_ID, 30, "teleinfokit-%06X", String(ESP.getEfuseMac()));
+    #elif _HW_VER == 6
+    snprintf(UNIQUE_ID, 30, "teleinfokit-%06X", String(Ethernet.macAddress()));
     #endif
 
   d->displayStartup(String(VERSION));
@@ -645,9 +681,11 @@ void setup()
 
   wm.setBreakAfterConfig(true); // needed to use saveWifiCallback
 
+#if _HW_VER != 6
   if (!test_mode)
   {
     d->logPercent("Connexion au réseau wifi...", 35);
+    log(String(ESP.getEfuseMac()));
 
     // fetches ssid and pass and tries to connect
     // if it does not connect it starts an access point with the specified name
@@ -672,7 +710,7 @@ void setup()
     // /#REGION WifiManager ==================================
 
   } // end if !test_mode
-
+#endif
   // ================ OTA ================
   ArduinoOTA.setHostname(UNIQUE_ID);
   ArduinoOTA.setPassword(randKey->apPwd);

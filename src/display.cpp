@@ -1,10 +1,6 @@
 #include "display.h"
 
-#if _HW_VER <= 4
-SSD1306Wire oled(0x3c, 0, 2, GEOMETRY_128_32);
-#elif _HW_VER == 5
-SSD1306Wire oled(0x3c, 8, 9, GEOMETRY_128_32);
-#endif
+SSD1306Wire oled(0x3c, OLED_SDA_PIN, OLED_SCL_PIN, GEOMETRY_128_32);
 
 Display::Display()
 {
