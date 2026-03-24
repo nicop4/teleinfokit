@@ -20,6 +20,7 @@
 #endif
 
 #include <Wire.h>
+#include "qrcode.h"
 #include "SSD1306Wire.h"
 #include "data.h"
 #include "version.h"
@@ -27,6 +28,8 @@
 
 #define HEIGHT 32
 #define WIDTH 128
+
+#define DISPLAY_STEP_MS 2000
 
 class Display
 {
@@ -40,6 +43,7 @@ public:
     void loop(void);
     void log(String text, int16_t displayTime = 500);
     void logPercent(String text, int percentage);
+    void displayAPData(String ssid, String password);
     void drawGraph(long papp, char mode);
     void displayData1(long papp, long iinst);
     void displayData2(long index, char *compteur);
@@ -53,6 +57,8 @@ public:
 
 private:
     Data *data;
-};
+    uint8_t displayGraphStep;
+    unsigned long lastGraphStepUpdate;
+}; 
 
 #endif /* DISPLAY_H */
