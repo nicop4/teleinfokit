@@ -92,6 +92,8 @@ private:
     bool sendGeneric;
     bool started;
 
+    bool mqttServerSet;
+
     // timestamp for the last power data send
     unsigned long ts_power;
     // timestamp for the last index data send
@@ -103,7 +105,6 @@ private:
     const unsigned long ONE_DAY_MS = 24UL * 60UL * 60UL * 1000UL;
 
     char CHIP_ID[7] = {0};
-    char UNIQUE_ID[30];
     char bufLabel[12];
     char bufLogTopic[35];
     char bufDataTopic[35];

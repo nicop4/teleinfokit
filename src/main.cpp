@@ -32,6 +32,7 @@
 #include "espteleinfo.h"
 #include "display.h"
 #include "randomKeyGenerator.h"
+#include "device_identity.h"
 #include "version.h"
 
 
@@ -211,8 +212,6 @@ char mqtt_port[6];
 char mqtt_server_username[32];
 char mqtt_server_password[32];
 char data_transmission_period[10];
-char UNIQUE_ID[30];
-char AP_NAME[30];
 
 char _customHtml_checkbox_mode_tic[200] = "";
 char _customHtml_checkbox_triphase[250] = "";
@@ -583,16 +582,7 @@ void setup()
   data->init();
   d->init(data);
 
-  #if _HW_VER <= 4
-  snprintf(UNIQUE_ID, 30, "teleinfokit-%06X", ESP.getChipId());
-  snprintf(AP_NAME, 30, "TeleInfoKit-%06X", ESP.getChipId());
-  #elif _HW_VER == 5
-  snprintf(UNIQUE_ID, 30, "teleinfokit-%06X", String(ESP.getEfuseMac()));
-  snprintf(AP_NAME, 30, "TeleInfoKit-%06X", String(ESP.getEfuseMac()));
-  #elif _HW_VER == 6
-  snprintf(UNIQUE_ID, 30, "teleinfokit-%06X", String(Ethernet.macAddress()));
-  snprintf(AP_NAME, 30, "TeleInfoKit-%06X", String(Ethernet.macAddress()));
-  #endif
+  DeviceIdentity::init();
 
   d->displayStartup(String(VERSION));
 
@@ -611,7 +601,7 @@ void setup()
   }
 
   d->logPercent("Démarrage", 5);
-  log("Unique ID: " + String(UNIQUE_ID));
+  log("Unique ID: " + String(DeviceIdentity::uniqueId()));
 
   while (!test_mode && millis() - reset_start < 1500)
   {
@@ -673,7 +663,7 @@ void setup()
 
   wm.setParamsPage(true);
 
-  wm.setHostname(UNIQUE_ID);
+  wm.setHostname(DeviceIdentity::uniqueId());
 
   if (!WMISBLOCKING)
   {
@@ -702,7 +692,7 @@ void setup()
     wifi_config_saved_during_portal = false;
 
     // the AP password is random and specific to each device, but will be always the same for a device
-    bool auto_connected = wm.autoConnect(AP_NAME, randKey->apPwd);
+    bool auto_connected = wm.autoConnect(DeviceIdentity::apName(), randKey->apPwd);
     if (!auto_connected)
     {
       if (!wifi_config_saved_during_portal)
@@ -729,7 +719,7 @@ void setup()
   } // end if !test_mode
 #endif
   // ================ OTA ================
-  ArduinoOTA.setHostname(UNIQUE_ID);
+  ArduinoOTA.setHostname(DeviceIdentity::uniqueId());
   ArduinoOTA.setPassword(randKey->apPwd);
   d->logPercent("Démarrage OTA", 50);
 
@@ -870,7 +860,7 @@ void loop()
         wm.setConfigPortalTimeout(WIFI_CONFIG_PORTAL_TIMEOUT_SEC);
 
         // startConfigPortal is blocking.
-        bool portal_connected = wm.startConfigPortal(AP_NAME, randKey->apPwd);
+        bool portal_connected = wm.startConfigPortal(DeviceIdentity::apName(), randKey->apPwd);
         bool wifi_connected = WiFi.status() == WL_CONNECTED;
 
         // If no configuration was saved during the portal session and WiFi is still down,
